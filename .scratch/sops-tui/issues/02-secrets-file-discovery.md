@@ -4,11 +4,11 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Given a directory tree with a mix of encrypted, plaintext, and non-yaml/json files, listing returns only `.yaml`/`.yml`/`.json` files
-- [ ] Files under `.git`, `node_modules`, or `vendor` (at any depth) are excluded
-- [ ] A file with a top-level `sops` key (yaml or json) is reported as Encrypted
-- [ ] A file without that key is reported as Plaintext
-- [ ] Malformed yaml/json in a scanned file does not abort the whole scan — that file is reported with an error/unknown status, other files still listed
-- [ ] Unit tests use real fixture files on a temp directory tree, no mocking of the filesystem interface
+- [x] Given a directory tree with a mix of encrypted, plaintext, and non-yaml/json files, listing returns only `.yaml`/`.yml`/`.json` files
+- [x] Files under `.git`, `node_modules`, or `vendor` (at any depth) are excluded
+- [x] A file with a top-level `sops` key (yaml or json) is reported as Encrypted
+- [x] A file without that key is reported as Plaintext
+- [x] Malformed yaml/json in a scanned file does not abort the whole scan — that file is reported with an error/unknown status, other files still listed
+- [x] Unit tests use real fixture files on a temp directory tree, no mocking of the filesystem interface

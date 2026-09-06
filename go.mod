@@ -7,4 +7,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 )
 
-require github.com/urfave/cli/v3 v3.11.0
+require (
+	github.com/urfave/cli/v3 v3.11.0
+	gopkg.in/yaml.v3 v3.0.1
+)
