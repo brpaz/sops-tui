@@ -15,10 +15,14 @@ const (
 	pathUsage = "Directory to scan for SOPS-managed files (default: current directory)"
 )
 
+// RunFunc launches the application against the resolved scan root.
+type RunFunc func(ctx context.Context, rootPath string) error
+
 // options holds the configuration for the root command.
 type options struct {
 	version  string
 	commands []*cli.Command
+	run      RunFunc
 }
 
 // Option is a functional option for configuring the root command.
@@ -33,6 +37,12 @@ func WithVersion(v string) Option {
 // Call it multiple times to register multiple sub-commands.
 func WithCommand(cmd *cli.Command) Option {
 	return func(o *options) { o.commands = append(o.commands, cmd) }
+}
+
+// WithRunFunc sets the function invoked with the resolved scan root when
+// the root command runs.
+func WithRunFunc(fn RunFunc) Option {
+	return func(o *options) { o.run = fn }
 }
 
 // New returns the root *cli.Command with the supplied options applied.
@@ -53,9 +63,15 @@ func New(opts ...Option) *cli.Command {
 		Arguments: []cli.Argument{
 			&cli.StringArg{Name: pathArg, UsageText: pathUsage},
 		},
-		Action: func(_ context.Context, cmd *cli.Command) error {
-			_, err := ResolvePath(cmd.StringArg(pathArg))
-			return err
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			path, err := ResolvePath(cmd.StringArg(pathArg))
+			if err != nil {
+				return err
+			}
+			if o.run == nil {
+				return nil
+			}
+			return o.run(ctx, path)
 		},
 	}
 }
