@@ -1,0 +1,35 @@
+name: Build Documentation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+  pull_request:
+    paths:
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+jobs:
+  build:
+    name: Build and Deploy Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip3 install -r docs/requirements.txt
+
+      - name: Build docs
+        run: mkdocs build
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: mkdocs gh-deploy --force

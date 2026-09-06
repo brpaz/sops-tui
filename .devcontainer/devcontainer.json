@@ -1,0 +1,10 @@
+{
+  "image": "ghcr.io/cachix/devenv/devcontainer:v2.0.6",
+  "customizations": {
+    "codespaces": {
+      "openFiles": ["README.md"],
+    },
+  },
+  "postStartCommand": "direnv allow .",
+  "overrideCommand": false,
+}
