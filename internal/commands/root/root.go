@@ -1,12 +1,18 @@
 package root
 
 import (
+	"context"
+	"os"
+	"path/filepath"
+
 	"github.com/urfave/cli/v3"
 )
 
 const (
-	Name  = "sops-tui"
-	usage = "A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files"
+	Name      = "sops-tui"
+	usage     = "A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files"
+	pathArg   = "path"
+	pathUsage = "Directory to scan for SOPS-managed files (default: current directory)"
 )
 
 // options holds the configuration for the root command.
@@ -44,5 +50,22 @@ func New(opts ...Option) *cli.Command {
 		Usage:                 usage,
 		EnableShellCompletion: true,
 		Commands:              o.commands,
+		Arguments: []cli.Argument{
+			&cli.StringArg{Name: pathArg, UsageText: pathUsage},
+		},
+		Action: func(_ context.Context, cmd *cli.Command) error {
+			_, err := ResolvePath(cmd.StringArg(pathArg))
+			return err
+		},
 	}
+}
+
+// ResolvePath resolves the scan root passed as the command's positional
+// argument to an absolute path, defaulting to the current working directory
+// when arg is empty.
+func ResolvePath(arg string) (string, error) {
+	if arg == "" {
+		return os.Getwd()
+	}
+	return filepath.Abs(arg)
 }

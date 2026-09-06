@@ -4,7 +4,6 @@ import (
 	"context"
 
 	rootcmd "github.com/brpaz/sops-tui/internal/commands/root"
-	hellocmd "github.com/brpaz/sops-tui/internal/commands/hello"
 )
 
 // App is the composition root for the sops-tui CLI.
@@ -41,7 +40,6 @@ func New(opts ...Option) (*App, error) {
 func (app *App) Run(ctx context.Context, args []string) error {
 	root := rootcmd.New(
 		rootcmd.WithVersion(app.Info.String()),
-		rootcmd.WithCommand(hellocmd.New()),
 	)
 
 	return root.Run(ctx, args)

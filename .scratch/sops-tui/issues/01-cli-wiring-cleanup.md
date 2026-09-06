@@ -4,10 +4,10 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `internal/commands/hello` (and its registration in the composition root) is deleted; no reference to it remains
-- [ ] Root command accepts an optional positional argument; when omitted, the resolved path is the current working directory
-- [ ] When given, the positional argument is resolved to an absolute path
-- [ ] Existing `--version`/`--help` behavior from the scaffold still works unchanged
-- [ ] Unit test covers: no argument → cwd; explicit relative/absolute argument → correct absolute path
+- [x] `internal/commands/hello` (and its registration in the composition root) is deleted; no reference to it remains
+- [x] Root command accepts an optional positional argument; when omitted, the resolved path is the current working directory
+- [x] When given, the positional argument is resolved to an absolute path
+- [x] Existing `--version`/`--help` behavior from the scaffold still works unchanged
+- [x] Unit test covers: no argument → cwd; explicit relative/absolute argument → correct absolute path
