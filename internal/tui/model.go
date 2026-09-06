@@ -14,7 +14,7 @@ import (
 const (
 	statusColumnWidth = 12
 	pathColumnWidth   = 60
-	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  r: refresh  q: quit"
+	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  e: encrypt  r: refresh  q: quit"
 	paneHelpLine      = "esc/q: back to list"
 	reservedRows      = 3 // help line + table header + margin
 )
@@ -105,6 +105,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if path := m.selectedPath(); path != "" {
 				m.pane = m.viewPane(path)
 			}
+			return m, nil
+		case "e":
+			m.encryptSelected()
 			return m, nil
 		}
 	}

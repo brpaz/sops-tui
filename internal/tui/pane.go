@@ -20,9 +20,15 @@ type pane struct {
 func (m Model) viewPane(relPath string) *pane {
 	content, err := secrets.View(m.fullPath(relPath))
 	if err != nil {
-		content = fmt.Sprintf("Error: %v", err)
+		return errorPane(relPath, err)
 	}
 	return &pane{path: relPath, content: content}
+}
+
+// errorPane builds a pane naming relPath and showing err's message,
+// unmodified, for actions that fail.
+func errorPane(relPath string, err error) *pane {
+	return &pane{path: relPath, content: fmt.Sprintf("Error: %v", err)}
 }
 
 // fullPath resolves a row's relative path against the scan root.
@@ -38,4 +44,14 @@ func (m Model) selectedPath() string {
 		return ""
 	}
 	return row[1]
+}
+
+// selectedStatus returns the currently selected row's status string
+// ("Encrypted"/"Plaintext"/"Unknown"), or "" if no row is selected.
+func (m Model) selectedStatus() string {
+	row := m.table.SelectedRow()
+	if len(row) < 1 {
+		return ""
+	}
+	return row[0]
 }

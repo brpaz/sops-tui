@@ -4,8 +4,8 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Triggering encrypt on a plaintext row that matches a `.sops.yaml` rule encrypts it in place; the list refreshes and shows it as Encrypted without a manual `r`
-- [ ] Triggering encrypt on a plaintext row with no matching `.sops.yaml` rule shows an error naming the file and the `sops`-reported reason; the file is left untouched
-- [ ] Triggering encrypt on an already-encrypted row is a no-op or is not offered as an available action for that row
+- [x] Triggering encrypt on a plaintext row that matches a `.sops.yaml` rule encrypts it in place; the list refreshes and shows it as Encrypted without a manual `r` (bound to `e`)
+- [x] Triggering encrypt on a plaintext row with no matching `.sops.yaml` rule shows an error naming the file and the `sops`-reported reason; the file is left untouched
+- [x] Triggering encrypt on an already-encrypted row is a no-op
