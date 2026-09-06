@@ -30,3 +30,19 @@ func (m *Model) encryptSelected() {
 		m.err = err
 	}
 }
+
+// confirmDecryptYes decrypts the file pending confirmation in place and
+// refreshes the list. It clears the pending confirmation either way.
+func (m *Model) confirmDecryptYes() {
+	path := m.confirmDecrypt
+	m.confirmDecrypt = ""
+
+	if err := secrets.Decrypt(m.fullPath(path)); err != nil {
+		m.pane = errorPane(path, err)
+		return
+	}
+
+	if err := m.refresh(); err != nil {
+		m.err = err
+	}
+}

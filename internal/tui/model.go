@@ -14,7 +14,7 @@ import (
 const (
 	statusColumnWidth = 12
 	pathColumnWidth   = 60
-	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  e: encrypt  r: refresh  q: quit"
+	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  e: encrypt  d: decrypt  r: refresh  q: quit"
 	paneHelpLine      = "esc/q: back to list"
 	reservedRows      = 3 // help line + table header + margin
 )
@@ -29,6 +29,9 @@ type Model struct {
 	// pane, when non-nil, is a full-screen overlay (e.g. decrypted file
 	// content) shown instead of the list.
 	pane *pane
+	// confirmDecrypt, when non-empty, is the relative path awaiting a
+	// yes/no confirmation before decrypting in place.
+	confirmDecrypt string
 }
 
 // New builds the TUI model for the given scan root. It requires the sops
@@ -85,6 +88,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		if m.confirmDecrypt != "" {
+			switch msg.String() {
+			case "y":
+				m.confirmDecryptYes()
+			case "n", "esc":
+				m.confirmDecrypt = ""
+			}
+			return m, nil
+		}
+
 		if m.pane != nil {
 			switch msg.String() {
 			case "esc", "q", "enter":
@@ -109,6 +122,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			m.encryptSelected()
 			return m, nil
+		case "d":
+			if m.selectedStatus() == statusEncrypted {
+				m.confirmDecrypt = m.selectedPath()
+			}
+			return m, nil
 		}
 	}
 
@@ -120,6 +138,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() tea.View {
 	if m.err != nil {
 		v := tea.NewView(fmt.Sprintf("Error: %v\n\npress q to quit\n", m.err))
+		v.AltScreen = true
+		return v
+	}
+
+	if m.confirmDecrypt != "" {
+		v := tea.NewView(fmt.Sprintf(
+			"Decrypt %s in place?\nThis writes plaintext to disk.\n\n[y] yes   [n/esc] cancel",
+			m.confirmDecrypt,
+		))
 		v.AltScreen = true
 		return v
 	}

@@ -4,9 +4,9 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Triggering decrypt-in-place on an encrypted row shows a confirmation prompt before anything happens on disk
-- [ ] Confirming decrypts the file in place; the list refreshes and shows it as Plaintext without a manual `r`
-- [ ] Cancelling the prompt leaves the file's contents and status unchanged
-- [ ] Triggering decrypt-in-place on an already-plaintext row is a no-op or is not offered as an available action for that row
+- [x] Triggering decrypt-in-place on an encrypted row shows a confirmation prompt before anything happens on disk (bound to `d`, confirm `y`, cancel `n`/`esc`)
+- [x] Confirming decrypts the file in place; the list refreshes and shows it as Plaintext without a manual `r`
+- [x] Cancelling the prompt leaves the file's contents and status unchanged
+- [x] Triggering decrypt-in-place on an already-plaintext row is a no-op
