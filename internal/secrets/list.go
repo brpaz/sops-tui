@@ -45,6 +45,10 @@ type FileEntry struct {
 	Err error
 }
 
+// sopsConfigFile is excluded from scan results: it matches the yaml
+// extension filter but is SOPS's own config, not a secret file.
+const sopsConfigFile = ".sops.yaml"
+
 var ignoredDirs = map[string]bool{
 	".git":         true,
 	"node_modules": true,
@@ -69,7 +73,7 @@ func List(root string) ([]FileEntry, error) {
 			return nil
 		}
 
-		if !isYAMLOrJSON(path) {
+		if d.Name() == sopsConfigFile || !isYAMLOrJSON(path) {
 			return nil
 		}
 

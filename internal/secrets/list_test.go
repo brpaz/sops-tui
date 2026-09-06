@@ -44,6 +44,17 @@ func TestList_FiltersToYAMLAndJSON(t *testing.T) {
 	require.ElementsMatch(t, []string{"secrets.yaml", "config.json"}, paths)
 }
 
+func TestList_ExcludesSopsConfigFile(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "secret.yaml"), plaintextYAML)
+	writeFile(t, filepath.Join(root, ".sops.yaml"), "creation_rules:\n  - path_regex: '.*'\n")
+
+	entries, err := List(root)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "secret.yaml", entries[0].Path)
+}
+
 func TestList_ExcludesIgnoredDirs(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "secrets.yaml"), plaintextYAML)

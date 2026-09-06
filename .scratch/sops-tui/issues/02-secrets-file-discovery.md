@@ -12,3 +12,5 @@
 - [x] A file without that key is reported as Plaintext
 - [x] Malformed yaml/json in a scanned file does not abort the whole scan — that file is reported with an error/unknown status, other files still listed
 - [x] Unit tests use real fixture files on a temp directory tree, no mocking of the filesystem interface
+
+**Follow-up fix (found while building ticket 05):** `.sops.yaml` itself matches the `.yaml` extension filter and was being listed as a scanned file (and sorted first alphabetically, ahead of real secrets). It's now excluded by exact filename, same as the ignored directories. Added `TestList_ExcludesSopsConfigFile` regression test.
