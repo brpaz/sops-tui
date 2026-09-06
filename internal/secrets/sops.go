@@ -43,11 +43,18 @@ func Encrypt(path string) error {
 // re-encrypts on save. The caller is responsible for suspending its own
 // terminal UI before calling Edit.
 func Edit(path string) error {
-	cmd := fileCommand(path)
+	cmd := EditCommand(path)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+// EditCommand returns the unstarted `sops <path>` command, with stdio left
+// unset, for a caller that manages its own terminal handoff (e.g. a
+// BubbleTea program suspending itself via tea.ExecProcess).
+func EditCommand(path string) *exec.Cmd {
+	return fileCommand(path)
 }
 
 // runSopsOnFile runs sops with the given flags followed by path, from

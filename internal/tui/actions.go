@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/brpaz/sops-tui/internal/secrets"
+import (
+	tea "charm.land/bubbletea/v2"
+
+	"github.com/brpaz/sops-tui/internal/secrets"
+)
 
 const (
 	statusEncrypted = "Encrypted"
@@ -29,6 +33,23 @@ func (m *Model) encryptSelected() {
 	if err := m.refresh(); err != nil {
 		m.err = err
 	}
+}
+
+// startEdit suspends the TUI and runs `sops <file>` in the foreground on
+// the selected row, resuming when the subprocess exits. A no-op if no row
+// is selected.
+func (m Model) startEdit() (Model, tea.Cmd) {
+	path := m.selectedPath()
+	if path == "" {
+		return m, nil
+	}
+
+	m.editingPath = path
+	cmd := secrets.EditCommand(m.fullPath(path))
+
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return editDoneMsg{err: err}
+	})
 }
 
 // confirmDecryptYes decrypts the file pending confirmation in place and

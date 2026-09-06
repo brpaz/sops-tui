@@ -14,7 +14,7 @@ import (
 const (
 	statusColumnWidth = 12
 	pathColumnWidth   = 60
-	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  e: encrypt  d: decrypt  r: refresh  q: quit"
+	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  E: edit  e: encrypt  d: decrypt  r: refresh  q: quit"
 	paneHelpLine      = "esc/q: back to list"
 	reservedRows      = 3 // help line + table header + margin
 )
@@ -32,7 +32,14 @@ type Model struct {
 	// confirmDecrypt, when non-empty, is the relative path awaiting a
 	// yes/no confirmation before decrypting in place.
 	confirmDecrypt string
+	// editingPath is the relative path of the file being edited via a
+	// suspended sops <file> subprocess, or "" when not editing.
+	editingPath string
 }
+
+// editDoneMsg reports that the suspended `sops <file>` edit subprocess
+// has exited.
+type editDoneMsg struct{ err error }
 
 // New builds the TUI model for the given scan root. It requires the sops
 // binary to already be available on PATH; callers should check that via
@@ -83,6 +90,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(max(msg.Height-reservedRows, 1))
 		return m, nil
 
+	case editDoneMsg:
+		path := m.editingPath
+		m.editingPath = ""
+		if err := m.refresh(); err != nil {
+			m.err = err
+			return m, nil
+		}
+		if msg.err != nil {
+			m.pane = errorPane(path, fmt.Errorf("edit did not complete: %w", msg.err))
+		}
+		return m, nil
+
 	case tea.KeyPressMsg:
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
@@ -122,6 +141,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			m.encryptSelected()
 			return m, nil
+		case "E":
+			return m.startEdit()
 		case "d":
 			if m.selectedStatus() == statusEncrypted {
 				m.confirmDecrypt = m.selectedPath()
