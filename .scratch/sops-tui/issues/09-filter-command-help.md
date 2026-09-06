@@ -4,9 +4,11 @@
 
 **Blocked by:** 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `/` opens a filter input; typing narrows the table to matching paths live; clearing/cancelling restores the full list
-- [ ] `:` opens a command input accepting at least the names of the actions already implemented at the time this ticket lands (view/encrypt/decrypt/edit/refresh), applied to the currently selected row
-- [ ] `?` opens an overlay listing every bound key and a one-line description; any key added by tickets 05-08 appears here
-- [ ] All three overlays/inputs can be dismissed (e.g. `Esc`) without side effects, returning to the list at the same selection
+- [x] `/` opens a filter input; typing narrows the table to matching paths live (case-insensitive substring); clearing/cancelling (`esc`) restores the full list. A confirmed filter (`enter`) persists across manual/auto refreshes.
+- [x] `:` opens a command input accepting `view`, `encrypt`, `decrypt`, `edit`, `refresh` (case-insensitive), applied to the currently selected row; an unrecognized name opens an error pane naming it
+- [x] `?` opens an overlay listing every bound key and a one-line description, including everything added by tickets 05-08
+- [x] All three overlays/inputs can be dismissed (`esc`, and `q` for the pane/help) without side effects, returning to the list at the same selection
+
+Note: while a filter or command input is focused, list-level single-key bindings (including `q`) are correctly *not* intercepted — they're ordinary typed characters instead, confirmed via a pty smoke test of the real binary (typing "q" while filtering inserts it into the filter text rather than quitting).

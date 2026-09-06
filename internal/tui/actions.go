@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
@@ -33,6 +36,33 @@ func (m *Model) encryptSelected() {
 	if err := m.refresh(); err != nil {
 		m.err = err
 	}
+}
+
+// executeCommand runs a ":" command by name against the currently
+// selected row: view, encrypt, decrypt, edit, or refresh. An unrecognized
+// command name shows an error pane naming it.
+func (m *Model) executeCommand(name string) (Model, tea.Cmd) {
+	switch strings.TrimSpace(strings.ToLower(name)) {
+	case "view":
+		if path := m.selectedPath(); path != "" {
+			m.pane = m.viewPane(path)
+		}
+	case "encrypt":
+		m.encryptSelected()
+	case "decrypt":
+		if m.selectedStatus() == statusEncrypted {
+			m.confirmDecrypt = m.selectedPath()
+		}
+	case "edit":
+		return m.startEdit()
+	case "refresh":
+		if err := m.refresh(); err != nil {
+			m.err = err
+		}
+	default:
+		m.pane = &pane{path: ":" + name, content: fmt.Sprintf("Error: unknown command %q", name)}
+	}
+	return *m, nil
 }
 
 // startEdit suspends the TUI and runs `sops <file>` in the foreground on

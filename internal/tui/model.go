@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
@@ -14,9 +15,19 @@ import (
 const (
 	statusColumnWidth = 12
 	pathColumnWidth   = 60
-	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  E: edit  e: encrypt  d: decrypt  r: refresh  q: quit"
+	helpLine          = "j/k: move  gg/G: top/bottom  v/enter: view  E: edit  e: encrypt  d: decrypt  /: filter  :: command  r: refresh  ?: help  q: quit"
 	paneHelpLine      = "esc/q: back to list"
 	reservedRows      = 3 // help line + table header + margin
+)
+
+// inputMode identifies which single-line input, if any, is currently
+// capturing keystrokes instead of the table.
+type inputMode int
+
+const (
+	inputNone inputMode = iota
+	inputFilter
+	inputCommand
 )
 
 // Model is the root BubbleTea model for sops-tui.
@@ -35,6 +46,22 @@ type Model struct {
 	// editingPath is the relative path of the file being edited via a
 	// suspended sops <file> subprocess, or "" when not editing.
 	editingPath string
+	// showHelp, when true, replaces the list with the keybinding overlay.
+	showHelp bool
+
+	// allRows is the unfiltered result of the last scan; the table shows
+	// a filtered view of it whenever filterQuery is non-empty.
+	allRows []table.Row
+	// filterQuery is the confirmed filter substring (case-insensitive,
+	// matched against the path column), or "" for no filter.
+	filterQuery string
+	// filterPrevQuery snapshots filterQuery when entering filter input,
+	// so esc can restore it.
+	filterPrevQuery string
+
+	// inputMode is which single-line input is active, if any.
+	inputMode inputMode
+	input     textinput.Model
 }
 
 // editDoneMsg reports that the suspended `sops <file>` edit subprocess
@@ -54,6 +81,7 @@ func New(root string) (Model, error) {
 			}),
 			table.WithFocused(true),
 		),
+		input: textinput.New(),
 	}
 
 	if err := m.refresh(); err != nil {
@@ -63,7 +91,8 @@ func New(root string) (Model, error) {
 	return m, nil
 }
 
-// refresh re-scans the root directory and repopulates the table.
+// refresh re-scans the root directory and repopulates the table, applying
+// any active filter.
 func (m *Model) refresh() error {
 	entries, err := secrets.List(m.root)
 	if err != nil {
@@ -74,7 +103,8 @@ func (m *Model) refresh() error {
 	for _, e := range entries {
 		rows = append(rows, table.Row{e.Status.String(), e.Path})
 	}
-	m.table.SetRows(rows)
+	m.allRows = rows
+	m.applyFilter()
 
 	return nil
 }
@@ -107,6 +137,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+		if m.showHelp {
+			switch msg.String() {
+			case "esc", "q", "?":
+				m.showHelp = false
+			}
+			return m, nil
+		}
+
+		if m.inputMode != inputNone {
+			switch msg.String() {
+			case "esc":
+				m.cancelInput()
+				return m, nil
+			case "enter":
+				return m.confirmInput()
+			}
+			var cmd tea.Cmd
+			m.input, cmd = m.input.Update(msg)
+			if m.inputMode == inputFilter {
+				m.filterQuery = m.input.Value()
+				m.applyFilter()
+			}
+			return m, cmd
+		}
+
 		if m.confirmDecrypt != "" {
 			switch msg.String() {
 			case "y":
@@ -128,6 +183,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q":
 			return m, tea.Quit
+		case "?":
+			m.showHelp = true
+			return m, nil
+		case "/":
+			m.startInput(inputFilter, "/", m.filterQuery)
+			return m, nil
+		case ":":
+			m.startInput(inputCommand, ":", "")
+			return m, nil
 		case "r":
 			if err := m.refresh(); err != nil {
 				m.err = err
@@ -163,6 +227,12 @@ func (m Model) View() tea.View {
 		return v
 	}
 
+	if m.showHelp {
+		v := tea.NewView(helpOverlay)
+		v.AltScreen = true
+		return v
+	}
+
 	if m.confirmDecrypt != "" {
 		v := tea.NewView(fmt.Sprintf(
 			"Decrypt %s in place?\nThis writes plaintext to disk.\n\n[y] yes   [n/esc] cancel",
@@ -174,6 +244,12 @@ func (m Model) View() tea.View {
 
 	if m.pane != nil {
 		v := tea.NewView(m.pane.path + "\n\n" + m.pane.content + "\n" + paneHelpLine)
+		v.AltScreen = true
+		return v
+	}
+
+	if m.inputMode != inputNone {
+		v := tea.NewView(m.table.View() + "\n" + m.input.View())
 		v.AltScreen = true
 		return v
 	}
