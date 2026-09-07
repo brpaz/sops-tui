@@ -179,4 +179,4 @@ All pull requests will be reviewed by at least one other team member. The review
 
 ### Release Process
 
-Releases are created using GitHub Releases. The release process is automated using GitHub Actions and [Release Drafter](https://github.com/release-drafter/release-drafter).
+Releases are created using GitHub Releases. The release process is automated using GitHub Actions and [draftsman](https://github.com/brpaz/draftsman): every push to `main` updates a draft release with entries generated from [Conventional Commits](https://www.conventionalcommits.org/), grouped by type. Publishing a release is a manual step in the GitHub UI.
