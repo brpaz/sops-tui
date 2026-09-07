@@ -30,6 +30,9 @@
 go install github.com/brpaz/sops-tui/cmd/sops-tui@latest
 ```
 
+Or grab a prebuilt binary from the [GitHub Releases](https://github.com/brpaz/sops-tui/releases)
+page — download the archive for your OS/arch, extract it, and put `sops-tui` on your `PATH`.
+
 Or build from source:
 
 ```bash
@@ -37,6 +40,9 @@ git clone https://github.com/brpaz/sops-tui.git
 cd sops-tui
 go install ./cmd/sops-tui
 ```
+
+📚 Full documentation, including a deeper usage guide and the complete keybinding reference, is at
+**[brpaz.github.io/sops-tui](https://brpaz.github.io/sops-tui/)**.
 
 ## Usage
 
