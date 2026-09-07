@@ -74,13 +74,18 @@ tasks:
       # will otherwise descend into devenv's GOPATH cache under .devenv/.
       - gomarkdoc --output '{{`{{.Dir}}`}}/GOMARKDOC.md' ./cmd/... ./internal/...
 
-  docs-build:
-    desc: Build documentation site
+  docs:build:
+    desc: Build the documentation site
     cmds:
       - zensical build --clean
 
-  docs-serve:
-    desc: Serve documentation locally
+  docs:check:
+    desc: Build the documentation site in strict mode (fails on warnings, as CI does)
+    cmds:
+      - zensical build --clean --strict
+
+  docs:serve:
+    desc: Serve the documentation site locally with live reload
     cmds:
       - zensical serve -a 127.0.0.1:{{ .DOCS_PORT | default "8080" }}
 
