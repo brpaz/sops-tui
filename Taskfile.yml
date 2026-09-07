@@ -77,12 +77,12 @@ tasks:
   docs-build:
     desc: Build documentation site
     cmds:
-      - mkdocs build
+      - zensical build --clean
 
   docs-serve:
     desc: Serve documentation locally
     cmds:
-      - mkdocs serve --dev-addr=127.0.0.1:{{ .DOCS_PORT | default "8080" }}
+      - zensical serve -a 127.0.0.1:{{ .DOCS_PORT | default "8080" }}
 
   snapshot:
     desc: Create a snapshot build

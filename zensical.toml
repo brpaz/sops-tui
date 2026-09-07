@@ -1,0 +1,28 @@
+[project]
+site_name = "sops-tui Documentation"
+site_description = "A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files"
+site_author = "Bruno Paz"
+site_url = "https://brpaz.github.io/sops-tui/"
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "navigation.top",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]

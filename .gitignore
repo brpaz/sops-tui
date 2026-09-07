@@ -27,6 +27,9 @@ devenv.local.nix
 build/
 dist/
 
+# Zensical docs build output
+/site/
+
 # Air temp files
 tmp/
 

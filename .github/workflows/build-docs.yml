@@ -5,16 +5,19 @@ on:
       - main
     paths:
       - "docs/**"
+      - "zensical.toml"
   pull_request:
     paths:
       - "docs/**"
+      - "zensical.toml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
 jobs:
   build:
-    name: Build and Deploy Documentation
+    name: Build Documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -24,12 +27,30 @@ jobs:
         with:
           python-version: "3.x"
 
-      - name: Install dependencies
-        run: pip3 install -r docs/requirements.txt
+      - name: Install Zensical
+        run: pip install zensical==0.0.56
 
       - name: Build docs
-        run: mkdocs build
+        run: zensical build --clean --strict
 
-      - name: Deploy to GitHub Pages
+      - name: Upload Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: mkdocs gh-deploy --force
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
