@@ -6,7 +6,9 @@
     ":prConcurrentLimit10",
     "security:gomodIndirectSecurityUpdates",
     "helpers:goXPackagesChangelogLink",
-    "helpers:goXPackagesNameLink"
+    "helpers:goXPackagesNameLink",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
   ],
   "labels": [
     "dependencies"
@@ -14,6 +16,7 @@
   "reviewers": [
     "brpaz"
   ],
+  "schedule": ["before 6am on monday"],
   "minimumReleaseAge": "3 days",
   "vulnerabilityAlerts": {
     "enabled": true,
@@ -26,6 +29,15 @@
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "github actions"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/build-docs\\.yml$/"],
+      "matchStrings": ["pip install zensical==(?<currentValue>[0-9.]+)"],
+      "depNameTemplate": "zensical",
+      "datasourceTemplate": "pypi"
     }
   ]
 }
