@@ -63,6 +63,16 @@ sops-tui [path]
 | `?` | Help |
 | `q` / `Ctrl+C` | Quit |
 
+## 🧱 Tech Stack
+
+- [Go](https://go.dev/) with [urfave/cli](https://github.com/urfave/cli) for the CLI entrypoint
+- [rivo/tview](https://github.com/rivo/tview) (backed by [gdamore/tcell](https://github.com/gdamore/tcell)) for the terminal UI
+- [sops](https://github.com/getsops/sops) itself, shelled out to for every encrypt/decrypt/view/edit — this project never reimplements sops's own logic
+- [Zensical](https://zensical.org/) for the [documentation site](https://brpaz.github.io/sops-tui/), deployed to GitHub Pages
+- [draftsman](https://github.com/brpaz/draftsman) for changelog generation from Conventional Commits
+- [Renovate](https://docs.renovatebot.com/) for dependency updates
+- [devenv](https://devenv.sh/)/Nix for the reproducible dev shell, [GoReleaser](https://goreleaser.com/) for release builds, Docker and GitHub Actions for CI/CD
+
 ## 🤝 Contributing
 
 All contributions are welcome. Please check [CONTRIBUTING.md](CONTRIBUTING.md) for details.
@@ -78,6 +88,14 @@ If you find this project helpful and would like to support its development, ther
 ## 👱 Contributors
 
 - [Bruno Paz](https://brunopaz.dev) - Creator and maintainer
+
+## 🤖 AI Usage
+
+This project was built in close collaboration with [Claude Code](https://claude.com/claude-code):
+feature implementation, UI iteration, CI/tooling fixes, and documentation were all done through an
+AI pair-programming workflow, directed and reviewed by the maintainer at each step. Every change
+was validated against the test suite, linters, and CI before being merged — the same bar as any
+other contribution to this repo.
 
 ## ❤️ Acknowledgements
 
