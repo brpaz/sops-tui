@@ -3,24 +3,43 @@ site_name = "sops-tui Documentation"
 site_description = "A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files"
 site_author = "Bruno Paz"
 site_url = "https://brpaz.github.io/sops-tui/"
+repo_url = "https://github.com/brpaz/sops-tui"
+repo_name = "brpaz/sops-tui"
+edit_uri = "edit/main/docs/"
+
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = "getting-started.md" },
+  { "Usage" = "usage.md" },
+  { "Keybindings" = "keybindings.md" },
+  { "Architecture" = "ARCHITECTURE.md" },
+]
 
 [project.theme]
 language = "en"
 features = [
   "content.code.copy",
   "navigation.top",
+  "navigation.tracking",
   "search.highlight",
 ]
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
 scheme = "default"
 toggle.icon = "lucide/sun"
 toggle.name = "Switch to dark mode"
 
 [[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
-toggle.name = "Switch to light mode"
+toggle.name = "Switch to system preference"
 
 [project.markdown_extensions.pymdownx.superfences]
 custom_fences = [
