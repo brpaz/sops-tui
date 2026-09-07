@@ -49,8 +49,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
   go build \
   -a \
   -trimpath \
-  -ldflags="-w -s -X github.com/brpaz/sops-tui/cmd/main.Version=${VERSION} -X github.com/brpaz/sops-tui/cmd/main.BuildDate=${BUILD_DATE} -X github.com/brpaz/sops-tui/cmd/main.Commit=${VCS_REF}" \
-  -o /build/app ./cmd/main.go
+  -ldflags="-w -s -X main.Version=${VERSION} -X main.BuildDate=${BUILD_DATE} -X main.Commit=${VCS_REF}" \
+  -o /build/app ./cmd/sops-tui
 
 # ==============================
 # --- Development Stage ---
@@ -70,7 +70,7 @@ COPY . .
 
 USER appuser
 
-CMD ["go", "run", "./cmd/main.go"]
+CMD ["go", "run", "./cmd/sops-tui"]
 
 # ==============================
 # --- Production Stage ---
@@ -84,25 +84,23 @@ ARG VERSION=latest
 ARG GID=1000
 ARG UID=1000
 
-WORKDIR /app
-
 RUN addgroup -g ${GID} -S appgroup && \
   adduser -u ${UID} -S appuser -G appgroup
 
 RUN apk --no-cache add ca-certificates curl
 
-COPY --from=builder /build/app /app
+COPY --from=builder /build/app /usr/local/bin/sops-tui
 
-RUN chown appuser:appgroup /app && \
-  chmod +x /app
+RUN chown appuser:appgroup /usr/local/bin/sops-tui && \
+  chmod +x /usr/local/bin/sops-tui
 
 USER appuser
 
-LABEL org.opencontainers.image.title="" \
+LABEL org.opencontainers.image.title="sops-tui" \
   org.opencontainers.image.version="${VERSION}" \
   org.opencontainers.image.created="${BUILD_DATE}" \
   org.opencontainers.image.revision="${VCS_REF}" \
   org.opencontainers.image.description="A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files" \
   org.opencontainers.image.source="https://github.com/brpaz/sops-tui"
 
-ENTRYPOINT ["/app"]
+ENTRYPOINT ["/usr/local/bin/sops-tui"]

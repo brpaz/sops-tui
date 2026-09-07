@@ -23,7 +23,7 @@ builds:
       - -X main.Version={{ .Version }}
       - -X main.BuildDate={{ .Date }}
       - -X main.Commit={{ .Commit }}
-    main: cmd/main.go
+    main: ./cmd/sops-tui
 
 archives:
   - formats: [tar.gz]
