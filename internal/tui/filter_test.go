@@ -5,35 +5,29 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
-)
 
-func typeText(t *testing.T, m Model, s string) Model {
-	t.Helper()
-	for _, r := range s {
-		updated, _ := m.Update(tea.KeyPressMsg{Text: string(r)})
-		m = updated.(Model)
-	}
-	return m
-}
+	"github.com/brpaz/sops-tui/internal/secrets"
+)
 
 func TestFilter_LiveNarrowsRows(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "aaa.yaml"), []byte("x: 1\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "bbb.yaml"), []byte("x: 1\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
-	require.Len(t, m.table.Rows(), 2)
+	a.view = viewAll
+	a.rebuildRows()
+	require.Len(t, tableRows(a), 2)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "/"})
-	m = updated.(Model)
-	require.Equal(t, inputFilter, m.inputMode)
+	a.handleKey(key("/"))
+	require.Equal(t, inputFilter, a.inputMode)
 
-	m = typeText(t, m, "aaa")
-	require.Len(t, m.table.Rows(), 1)
-	require.Equal(t, "aaa.yaml", m.table.Rows()[0][1])
+	typeText(t, a, "aaa")
+	rows := tableRows(a)
+	require.Len(t, rows, 1)
+	require.Equal(t, "aaa.yaml", rows[0])
 }
 
 func TestFilter_EscCancelRestoresFullList(t *testing.T) {
@@ -41,20 +35,20 @@ func TestFilter_EscCancelRestoresFullList(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "aaa.yaml"), []byte("x: 1\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "bbb.yaml"), []byte("x: 1\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "/"})
-	m = updated.(Model)
-	m = typeText(t, m, "aaa")
-	require.Len(t, m.table.Rows(), 1)
+	a.handleKey(key("/"))
+	typeText(t, a, "aaa")
+	require.Len(t, tableRows(a), 1)
 
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "esc"})
-	m = updated.(Model)
+	a.handleKey(key("esc"))
 
-	require.Equal(t, inputNone, m.inputMode)
-	require.Empty(t, m.filterQuery)
-	require.Len(t, m.table.Rows(), 2, "cancelling restores the unfiltered list")
+	require.Equal(t, inputNone, a.inputMode)
+	require.Empty(t, a.filterQuery)
+	require.Len(t, tableRows(a), 2, "cancelling restores the unfiltered list")
 }
 
 func TestFilter_EnterConfirmsAndSurvivesRefresh(t *testing.T) {
@@ -62,27 +56,27 @@ func TestFilter_EnterConfirmsAndSurvivesRefresh(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(root, "aaa.yaml"), []byte("x: 1\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "bbb.yaml"), []byte("x: 1\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "/"})
-	m = updated.(Model)
-	m = typeText(t, m, "bbb")
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "enter"})
-	m = updated.(Model)
+	a.handleKey(key("/"))
+	typeText(t, a, "bbb")
+	a.handleKey(key("enter"))
 
-	require.Equal(t, inputNone, m.inputMode)
-	require.Equal(t, "bbb", m.filterQuery)
-	require.Len(t, m.table.Rows(), 1)
+	require.Equal(t, inputNone, a.inputMode)
+	require.Equal(t, "bbb", a.filterQuery)
+	require.Len(t, tableRows(a), 1)
 
 	// A new file appears on disk; a manual refresh must keep the
 	// confirmed filter applied.
 	require.NoError(t, os.WriteFile(filepath.Join(root, "ccc.yaml"), []byte("x: 1\n"), 0o644))
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "r"})
-	m = updated.(Model)
+	a.handleKey(key("r"))
 
-	require.Len(t, m.table.Rows(), 1)
-	require.Equal(t, "bbb.yaml", m.table.Rows()[0][1])
+	rows := tableRows(a)
+	require.Len(t, rows, 1)
+	require.Equal(t, "bbb.yaml", rows[0])
 }
 
 func TestCommandMode_ExecutesNamedActionOnSelectedRow(t *testing.T) {
@@ -91,36 +85,36 @@ func TestCommandMode_ExecutesNamedActionOnSelectedRow(t *testing.T) {
 	writeSopsConfig(t, root, publicKey)
 	require.NoError(t, os.WriteFile(filepath.Join(root, "secret.yaml"), []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: ":"})
-	m = updated.(Model)
-	require.Equal(t, inputCommand, m.inputMode)
+	a.handleKey(key(":"))
+	require.Equal(t, inputCommand, a.inputMode)
 
-	m = typeText(t, m, "encrypt")
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "enter"})
-	m = updated.(Model)
+	typeText(t, a, "encrypt")
+	a.handleKey(key("enter"))
+	require.NotNil(t, a.confirm, "the encrypt command raises the same confirmation as the e key")
+	a.handleKey(key("y"))
 
-	require.Equal(t, inputNone, m.inputMode)
-	require.Equal(t, "Encrypted", m.table.Rows()[0][0])
+	require.Equal(t, inputNone, a.inputMode)
+	require.Equal(t, secrets.StatusEncrypted, entryStatus(t, a, "secret.yaml"))
 }
 
 func TestCommandMode_UnknownCommandShowsErrorPane(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(root, "secret.yaml"), []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: ":"})
-	m = updated.(Model)
-	m = typeText(t, m, "bogus")
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "enter"})
-	m = updated.(Model)
+	a.handleKey(key(":"))
+	typeText(t, a, "bogus")
+	a.handleKey(key("enter"))
 
-	require.NotNil(t, m.pane)
-	require.Contains(t, m.pane.content, "unknown command")
+	require.NotNil(t, a.pane)
+	require.Contains(t, a.pane.content, "unknown command")
 }
 
 func TestCommandMode_EscCancelsWithoutSideEffects(t *testing.T) {
@@ -128,16 +122,14 @@ func TestCommandMode_EscCancelsWithoutSideEffects(t *testing.T) {
 	path := filepath.Join(root, "secret.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: ":"})
-	m = updated.(Model)
-	m = typeText(t, m, "encrypt")
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "esc"})
-	m = updated.(Model)
+	a.handleKey(key(":"))
+	typeText(t, a, "encrypt")
+	a.handleKey(key("esc"))
 
-	require.Equal(t, inputNone, m.inputMode)
+	require.Equal(t, inputNone, a.inputMode)
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, "password: hunter2\n", string(raw), "cancelling a command must not execute it")
@@ -145,16 +137,13 @@ func TestCommandMode_EscCancelsWithoutSideEffects(t *testing.T) {
 
 func TestHelpOverlay_TogglesAndDismisses(t *testing.T) {
 	root := t.TempDir()
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "?"})
-	m = updated.(Model)
-	require.True(t, m.showHelp)
-	require.Contains(t, m.View().Content, "keybindings")
+	a.handleKey(key("?"))
+	require.True(t, a.showHelp)
+	require.Contains(t, a.helpView.GetText(true), "keybindings")
 
-	updated, cmd := m.Update(tea.KeyPressMsg{Text: "q"})
-	m = updated.(Model)
-	require.False(t, m.showHelp)
-	require.Nil(t, cmd, "q inside the help overlay closes it, it must not quit the app")
+	a.handleKey(key("q"))
+	require.False(t, a.showHelp, "q inside the help overlay closes it, it must not quit the app")
 }

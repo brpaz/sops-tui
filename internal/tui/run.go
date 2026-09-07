@@ -3,8 +3,6 @@ package tui
 import (
 	"context"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/brpaz/sops-tui/internal/secrets"
 )
 
@@ -15,11 +13,20 @@ func Run(ctx context.Context, root string) error {
 		return err
 	}
 
-	m, err := New(root)
+	a, err := New(root)
 	if err != nil {
 		return err
 	}
 
-	_, err = tea.NewProgram(m, tea.WithContext(ctx)).Run()
-	return err
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			a.app.Stop()
+		case <-done:
+		}
+	}()
+
+	return a.app.Run()
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -55,11 +56,62 @@ var ignoredDirs = map[string]bool{
 	"vendor":       true,
 }
 
-// List recursively scans root for .yaml/.yml/.json files, skipping .git,
-// node_modules, and vendor directories at any depth, and reports each
-// file's SOPS encryption status.
+// List recursively scans root for .yaml/.yml/.json files and reports each
+// file's SOPS encryption status. When root is inside a git work tree,
+// gitignored paths (e.g. vendor/, node_modules/, build caches) are
+// excluded the same way `git status` would exclude them; otherwise it
+// falls back to skipping .git, node_modules, and vendor directories at
+// any depth.
 func List(root string) ([]FileEntry, error) {
+	rels, ok := gitTrackedFiles(root)
+	if !ok {
+		var err error
+		rels, err = walkFiles(root)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var entries []FileEntry
+	for _, rel := range rels {
+		if filepath.Base(rel) == sopsConfigFile || !isYAMLOrJSON(rel) {
+			continue
+		}
+
+		status, statusErr := detectStatus(filepath.Join(root, rel))
+		entries = append(entries, FileEntry{
+			Path:   rel,
+			Status: status,
+			Err:    statusErr,
+		})
+	}
+
+	return entries, nil
+}
+
+// gitTrackedFiles lists every file under root that git would not ignore
+// (tracked files plus untracked-but-not-ignored ones), relative to root.
+// ok is false when root is not inside a git work tree or git is
+// unavailable, signaling the caller to fall back to a plain directory
+// walk.
+func gitTrackedFiles(root string) (rels []string, ok bool) {
+	out, err := exec.Command("git", "-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").Output()
+	if err != nil {
+		return nil, false
+	}
+
+	for rel := range strings.SplitSeq(string(out), "\x00") {
+		if rel != "" {
+			rels = append(rels, rel)
+		}
+	}
+	return rels, true
+}
+
+// walkFiles lists every file under root, skipping .git, node_modules, and
+// vendor directories at any depth, relative to root.
+func walkFiles(root string) ([]string, error) {
+	var rels []string
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -73,29 +125,18 @@ func List(root string) ([]FileEntry, error) {
 			return nil
 		}
 
-		if d.Name() == sopsConfigFile || !isYAMLOrJSON(path) {
-			return nil
-		}
-
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
-
-		status, statusErr := detectStatus(path)
-		entries = append(entries, FileEntry{
-			Path:   rel,
-			Status: status,
-			Err:    statusErr,
-		})
-
+		rels = append(rels, rel)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return entries, nil
+	return rels, nil
 }
 
 func isYAMLOrJSON(path string) bool {

@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 	"github.com/stretchr/testify/require"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
@@ -25,7 +26,7 @@ func ageFixture(t *testing.T) (publicKey string) {
 	require.NoError(t, os.WriteFile(keyFile, out, 0o600))
 	t.Setenv("SOPS_AGE_KEY_FILE", keyFile)
 
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if pk, ok := strings.CutPrefix(line, "# public key: "); ok {
 			return pk
 		}
@@ -40,6 +41,70 @@ func writeSopsConfig(t *testing.T, dir, publicKey string) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".sops.yaml"), []byte(content), 0o644))
 }
 
+// key builds the tcell key event handleKey expects for a single logical
+// keypress, mirroring the strings used throughout these tests: a named
+// special key ("enter", "esc", "ctrl+c", "up", "down", "home", "end") or
+// a single character rune.
+func key(s string) *tcell.EventKey {
+	switch s {
+	case "enter":
+		return tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
+	case "esc":
+		return tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+	case "ctrl+c":
+		return tcell.NewEventKey(tcell.KeyCtrlC, 0, tcell.ModNone)
+	case "up":
+		return tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
+	case "down":
+		return tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	case "home":
+		return tcell.NewEventKey(tcell.KeyHome, 0, tcell.ModNone)
+	case "end":
+		return tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone)
+	case "tab":
+		return tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	default:
+		r := []rune(s)
+		return tcell.NewEventKey(tcell.KeyRune, r[0], tcell.ModNone)
+	}
+}
+
+// tableRows returns the table's data row paths (excluding the header), in
+// display order.
+func tableRows(a *App) []string {
+	var rows []string
+	for i := 1; i < a.table.GetRowCount(); i++ {
+		rows = append(rows, a.table.GetCell(i, 0).Text)
+	}
+	return rows
+}
+
+// entryStatus looks up path's status in a.allEntries, the raw scan result
+// underlying the table. Status is no longer a visible column (each view
+// mode already implies it), so tests assert on the scan result directly.
+func entryStatus(t *testing.T, a *App, path string) secrets.Status {
+	t.Helper()
+	for _, e := range a.allEntries {
+		if e.Path == path {
+			return e.Status
+		}
+	}
+	t.Fatalf("no scanned entry for path %q", path)
+	return secrets.StatusUnknown
+}
+
+// typeText feeds s through handleKey one rune at a time, forwarding
+// whatever handleKey doesn't consume to the input field's own handler,
+// exactly as Application.Run's event loop would.
+func typeText(t *testing.T, a *App, s string) {
+	t.Helper()
+	for _, r := range s {
+		if event := a.handleKey(key(string(r))); event != nil {
+			a.input.InputHandler()(event, func(tview.Primitive) {})
+		}
+	}
+}
+
 func TestViewAction_ShowsDecryptedContentWithoutModifyingDisk(t *testing.T) {
 	root := t.TempDir()
 	publicKey := ageFixture(t)
@@ -52,22 +117,20 @@ func TestViewAction_ShowsDecryptedContentWithoutModifyingDisk(t *testing.T) {
 	before, err := os.ReadFile(path)
 	require.NoError(t, err)
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "v"})
-	m = updated.(Model)
+	a.handleKey(key("v"))
 
-	require.NotNil(t, m.pane)
-	require.Contains(t, m.pane.content, "password: hunter2")
+	require.NotNil(t, a.pane)
+	require.Contains(t, a.pane.content, "password: hunter2")
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "viewing must not modify the file on disk")
 
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "esc"})
-	m = updated.(Model)
-	require.Nil(t, m.pane, "esc returns to the list")
+	a.handleKey(key("esc"))
+	require.Nil(t, a.pane, "esc returns to the list")
 }
 
 func TestViewAction_QReturnsToPane(t *testing.T) {
@@ -79,16 +142,29 @@ func TestViewAction_QReturnsToPane(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 	require.NoError(t, secrets.Encrypt(path))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "enter"})
-	m = updated.(Model)
-	require.NotNil(t, m.pane)
+	a.handleKey(key("enter"))
+	require.NotNil(t, a.pane)
 
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "q"})
-	m = updated.(Model)
-	require.Nil(t, m.pane, "q closes the pane rather than quitting the app")
+	a.handleKey(key("q"))
+	require.Nil(t, a.pane, "q closes the pane rather than quitting the app")
+}
+
+func TestViewAction_PlaintextRowShowsRawContentWithoutSops(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "plain.yaml"), []byte("data: hello\n"), 0o644))
+
+	a, err := New(root)
+	require.NoError(t, err)
+	a.view = viewPlaintext
+	a.rebuildRows()
+
+	a.handleKey(key("v"))
+
+	require.NotNil(t, a.pane)
+	require.Equal(t, "data: hello\n", a.pane.content, "plaintext rows are read directly, not through sops -d")
 }
 
 func TestViewAction_DecryptFailureShowsErrorInPane(t *testing.T) {
@@ -99,12 +175,11 @@ func TestViewAction_DecryptFailureShowsErrorInPane(t *testing.T) {
 	path := filepath.Join(root, "broken.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("data: hello\nsops:\n    version: 3\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "v"})
-	m = updated.(Model)
+	a.handleKey(key("v"))
 
-	require.NotNil(t, m.pane)
-	require.Contains(t, m.pane.content, "Error:")
+	require.NotNil(t, a.pane)
+	require.Contains(t, a.pane.content, "Error:")
 }

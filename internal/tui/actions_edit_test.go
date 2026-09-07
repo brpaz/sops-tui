@@ -3,40 +3,59 @@ package tui
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
+
+	"github.com/brpaz/sops-tui/internal/secrets"
 )
 
-func TestEditAction_StartsExecAndTracksPath(t *testing.T) {
+// fakeSuspend replaces App.suspend in tests: it calls f synchronously,
+// standing in for app.Suspend (which is a no-op before Run has
+// initialized the screen).
+func fakeSuspend(f func()) { f() }
+
+func TestEditAction_RunsEditOnSelectedRow(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "secret.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, cmd := m.Update(tea.KeyPressMsg{Text: "E"})
-	m = updated.(Model)
+	var editedPath string
+	a.suspend = fakeSuspend
+	a.edit = func(p string) error {
+		editedPath = p
+		return nil
+	}
 
-	require.NotNil(t, cmd, "starting edit must return a tea.Cmd (tea.ExecProcess)")
-	require.Equal(t, "secret.yaml", m.editingPath)
+	a.handleKey(key("E"))
+
+	require.Equal(t, path, editedPath, "edit must run against the selected row's full path")
 }
 
 func TestEditAction_NoOpWithNoRowsSelected(t *testing.T) {
 	root := t.TempDir()
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
-	require.Empty(t, m.table.Rows())
+	require.Empty(t, tableRows(a))
 
-	updated, cmd := m.Update(tea.KeyPressMsg{Text: "E"})
-	m = updated.(Model)
+	called := false
+	a.suspend = fakeSuspend
+	a.edit = func(string) error {
+		called = true
+		return nil
+	}
 
-	require.Nil(t, cmd)
-	require.Empty(t, m.editingPath)
+	a.handleKey(key("E"))
+
+	require.False(t, called, "edit must not run when nothing is selected")
 }
 
 func TestEditAction_SuccessfulEditRefreshesList(t *testing.T) {
@@ -44,23 +63,44 @@ func TestEditAction_SuccessfulEditRefreshesList(t *testing.T) {
 	path := filepath.Join(root, "secret.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "E"})
-	m = updated.(Model)
-	require.Equal(t, "secret.yaml", m.editingPath)
+	a.suspend = fakeSuspend
+	// Simulate the subprocess having encrypted the file while suspended.
+	a.edit = func(p string) error {
+		return os.WriteFile(p, []byte("password: hunter2\nsops:\n    version: 3\n"), 0o644)
+	}
 
-	// Simulate the subprocess having encrypted the file while suspended,
-	// then reporting a clean exit.
-	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\nsops:\n    version: 3\n"), 0o644))
+	a.handleKey(key("E"))
 
-	updated, _ = m.Update(editDoneMsg{err: nil})
-	m = updated.(Model)
+	require.Nil(t, a.pane)
+	require.Equal(t, secrets.StatusEncrypted, entryStatus(t, a, "secret.yaml"), "list reflects disk state after resume")
+}
 
-	require.Empty(t, m.editingPath)
-	require.Nil(t, m.pane)
-	require.Equal(t, "Encrypted", m.table.Rows()[0][0], "list reflects disk state after resume")
+func TestEditAction_UnchangedFileExitCodeIsNotAnError(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "secret.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
+
+	a, err := New(root)
+	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
+
+	a.suspend = fakeSuspend
+	// sops itself exits 200 ("the file has not been modified, exiting.")
+	// when the editor closed without changes; that's not a failure.
+	a.edit = func(string) error {
+		return exec.Command("sh", "-c", "exit 200").Run()
+	}
+
+	a.handleKey(key("E"))
+
+	require.Nil(t, a.pane, "an unmodified-file exit must not open an error pane")
+	require.Len(t, tableRows(a), 1, "list is still refreshed")
 }
 
 func TestEditAction_FailedEditShowsErrorPaneAndStillRefreshes(t *testing.T) {
@@ -68,17 +108,19 @@ func TestEditAction_FailedEditShowsErrorPaneAndStillRefreshes(t *testing.T) {
 	path := filepath.Join(root, "secret.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "E"})
-	m = updated.(Model)
+	a.suspend = fakeSuspend
+	a.edit = func(string) error {
+		return fmt.Errorf("exit status 1")
+	}
 
-	updated, _ = m.Update(editDoneMsg{err: fmt.Errorf("exit status 1")})
-	m = updated.(Model)
+	a.handleKey(key("E"))
 
-	require.Empty(t, m.editingPath)
-	require.NotNil(t, m.pane)
-	require.Contains(t, m.pane.content, "edit did not complete")
-	require.Len(t, m.table.Rows(), 1, "list is still refreshed after a failed edit")
+	require.NotNil(t, a.pane)
+	require.Contains(t, a.pane.content, "edit did not complete")
+	require.Len(t, tableRows(a), 1, "list is still refreshed after a failed edit")
 }

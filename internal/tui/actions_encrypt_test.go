@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
@@ -19,15 +18,19 @@ func TestEncryptAction_EncryptsAndRefreshesList(t *testing.T) {
 	path := filepath.Join(root, "secret.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
-	require.Equal(t, "Plaintext", m.table.Rows()[0][0])
+	a.view = viewAll
+	a.rebuildRows()
+	require.Equal(t, secrets.StatusPlaintext, entryStatus(t, a, "secret.yaml"))
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "e"})
-	m = updated.(Model)
+	a.handleKey(key("e"))
+	require.Equal(t, &confirmPane{kind: "encrypt", path: "secret.yaml"}, a.confirm, "encrypt asks for confirmation before touching disk")
+	a.handleKey(key("y"))
 
-	require.Nil(t, m.pane, "successful encrypt does not open an error pane")
-	require.Equal(t, "Encrypted", m.table.Rows()[0][0], "list refreshed without a manual r")
+	require.Nil(t, a.confirm)
+	require.Nil(t, a.pane, "successful encrypt does not open an error pane")
+	require.Equal(t, secrets.StatusEncrypted, entryStatus(t, a, "secret.yaml"), "list refreshed without a manual r")
 
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -44,15 +47,18 @@ func TestEncryptAction_NoMatchingRuleShowsErrorPane(t *testing.T) {
 	path := filepath.Join(root, "nomatch.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "e"})
-	m = updated.(Model)
+	a.handleKey(key("e"))
+	a.handleKey(key("y"))
 
-	require.NotNil(t, m.pane)
-	require.Contains(t, m.pane.content, "nomatch.yaml")
-	require.Equal(t, "Plaintext", m.table.Rows()[0][0], "file is left untouched")
+	require.Nil(t, a.confirm)
+	require.NotNil(t, a.pane)
+	require.Contains(t, a.pane.content, "nomatch.yaml")
+	require.Equal(t, secrets.StatusPlaintext, entryStatus(t, a, "nomatch.yaml"), "file is left untouched")
 }
 
 func TestEncryptAction_NoOpOnAlreadyEncryptedRow(t *testing.T) {
@@ -64,17 +70,17 @@ func TestEncryptAction_NoOpOnAlreadyEncryptedRow(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 	require.NoError(t, secrets.Encrypt(path))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
-	require.Equal(t, "Encrypted", m.table.Rows()[0][0])
+	require.Equal(t, secrets.StatusEncrypted, entryStatus(t, a, "secret.yaml"))
 
 	before, err := os.ReadFile(path)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "e"})
-	m = updated.(Model)
+	a.handleKey(key("e"))
 
-	require.Nil(t, m.pane)
+	require.Nil(t, a.confirm, "already-encrypted row raises no confirmation")
+	require.Nil(t, a.pane)
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, before, after)

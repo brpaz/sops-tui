@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
@@ -28,13 +27,12 @@ func TestDecryptAction_ShowsConfirmationBeforeTouchingDisk(t *testing.T) {
 	before, err := os.ReadFile(path)
 	require.NoError(t, err)
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "d"})
-	m = updated.(Model)
+	a.handleKey(key("d"))
 
-	require.Equal(t, "secret.yaml", m.confirmDecrypt)
+	require.Equal(t, &confirmPane{kind: "decrypt", path: "secret.yaml"}, a.confirm)
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -45,16 +43,16 @@ func TestDecryptAction_ConfirmDecryptsAndRefreshes(t *testing.T) {
 	root := t.TempDir()
 	path := encryptedFixture(t, root)
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "d"})
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "y"})
-	m = updated.(Model)
+	a.handleKey(key("d"))
+	a.handleKey(key("y"))
 
-	require.Empty(t, m.confirmDecrypt)
-	require.Equal(t, "Plaintext", m.table.Rows()[0][0], "list refreshed without a manual r")
+	require.Nil(t, a.confirm)
+	require.Equal(t, secrets.StatusPlaintext, entryStatus(t, a, "secret.yaml"), "list refreshed without a manual r")
 
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -67,16 +65,14 @@ func TestDecryptAction_CancelLeavesFileUnchanged(t *testing.T) {
 	before, err := os.ReadFile(path)
 	require.NoError(t, err)
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "d"})
-	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyPressMsg{Text: "n"})
-	m = updated.(Model)
+	a.handleKey(key("d"))
+	a.handleKey(key("n"))
 
-	require.Empty(t, m.confirmDecrypt)
-	require.Equal(t, "Encrypted", m.table.Rows()[0][0])
+	require.Nil(t, a.confirm)
+	require.Equal(t, secrets.StatusEncrypted, entryStatus(t, a, "secret.yaml"))
 
 	after, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -88,11 +84,12 @@ func TestDecryptAction_NoOpOnPlaintextRow(t *testing.T) {
 	path := filepath.Join(root, "plain.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("password: hunter2\n"), 0o644))
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
+	a.view = viewAll
+	a.rebuildRows()
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "d"})
-	m = updated.(Model)
+	a.handleKey(key("d"))
 
-	require.Empty(t, m.confirmDecrypt, "no confirmation should be raised for a plaintext row")
+	require.Nil(t, a.confirm, "no confirmation should be raised for a plaintext row")
 }

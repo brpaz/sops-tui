@@ -54,10 +54,25 @@ tasks:
     cmds:
       - go mod download && go mod tidy
 
+  install:
+    desc: Build and install the sops-tui binary to ~/go/bin (global, not the devenv GOPATH)
+    env:
+      GOBIN: "{{.HOME}}/go/bin"
+    cmds:
+      - |
+        go install -ldflags "\
+          -X main.Version={{.VERSION}} \
+          -X main.Commit={{.COMMIT}} \
+          -X main.BuildDate={{.DATE}}" \
+          ./cmd/sops-tui
+
   gomarkdoc:
     desc: Generate documentation using gomarkdoc
     cmds:
-      - gomarkdoc --output '{{`{{.Dir}}`}}/GOMARKDOC.md' ./...
+      # Explicit package prefixes, not a bare ./..., since gomarkdoc's own
+      # directory walk (unlike `go build`) doesn't skip dot-directories and
+      # will otherwise descend into devenv's GOPATH cache under .devenv/.
+      - gomarkdoc --output '{{`{{.Dir}}`}}/GOMARKDOC.md' ./cmd/... ./internal/...
 
   docs-build:
     desc: Build documentation site

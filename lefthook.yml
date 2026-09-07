@@ -3,14 +3,20 @@
 commit-msg:
   commands:
     commitlint:
-      run: commitlint
+      # commitlint-rs 0.2.4's default `-e` resolution is broken (it lints
+      # an empty message unless the file is passed explicitly), so pass
+      # the commit-msg file lefthook hands us instead of relying on it.
+      run: commitlint -e {1}
 
 pre-commit:
   parallel: true
   commands:
     lint:
       glob: "*.go"
-      run: golangci-lint run --fix {staged_files}
+      # golangci-lint requires an explicit file list to all be in one
+      # directory, so {staged_files} breaks as soon as a commit touches
+      # more than one package; lint the whole module instead.
+      run: golangci-lint run --fix ./...
       stage_fixed: true
     docs:
       run: task gomarkdoc

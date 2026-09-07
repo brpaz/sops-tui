@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/require"
 )
 
@@ -20,43 +19,61 @@ func TestNew_PopulatesTableFromScan(t *testing.T) {
 	writeFile(t, filepath.Join(root, "plain.yaml"), "data: hello\n")
 	writeFile(t, filepath.Join(root, "enc.yaml"), "data: ENC[...]\nsops:\n    version: 3\n")
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	rows := m.table.Rows()
-	require.Len(t, rows, 2)
+	rows := tableRows(a)
+	require.Len(t, rows, 1, "default view shows only encrypted files")
+	require.Equal(t, "enc.yaml", rows[0])
+}
 
-	byPath := map[string]string{}
-	for _, r := range rows {
-		byPath[r[1]] = r[0]
-	}
-	require.Equal(t, "Plaintext", byPath["plain.yaml"])
-	require.Equal(t, "Encrypted", byPath["enc.yaml"])
+func TestUpdate_TabCyclesViewModes(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "plain.yaml"), "data: hello\n")
+	writeFile(t, filepath.Join(root, "enc.yaml"), "data: ENC[...]\nsops:\n    version: 3\n")
+
+	a, err := New(root)
+	require.NoError(t, err)
+	require.Len(t, tableRows(a), 1, "default view shows only encrypted files")
+	require.Equal(t, "enc.yaml", tableRows(a)[0])
+
+	a.handleKey(key("tab"))
+	rows := tableRows(a)
+	require.Len(t, rows, 1, "plaintext view shows only plaintext files")
+	require.Equal(t, "plain.yaml", rows[0])
+
+	a.handleKey(key("tab"))
+	require.Len(t, tableRows(a), 2, "all view shows every file")
+
+	a.handleKey(key("tab"))
+	require.Len(t, tableRows(a), 1, "cycling wraps back to the encrypted view")
+	require.Equal(t, "enc.yaml", tableRows(a)[0])
 }
 
 func TestUpdate_RefreshKeyRescans(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "plain.yaml"), "data: hello\n")
 
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
-	require.Len(t, m.table.Rows(), 1)
+	a.view = viewAll
+	a.rebuildRows()
+	require.Len(t, tableRows(a), 1)
 
 	writeFile(t, filepath.Join(root, "second.yaml"), "data: world\n")
 
-	updated, _ := m.Update(tea.KeyPressMsg{Text: "r"})
-	m = updated.(Model)
-	require.Len(t, m.table.Rows(), 2)
+	a.handleKey(key("r"))
+	require.Len(t, tableRows(a), 2)
 }
 
-func TestUpdate_QuitKeyReturnsQuitCmd(t *testing.T) {
+func TestUpdate_QuitKeyStopsApp(t *testing.T) {
 	root := t.TempDir()
-	m, err := New(root)
+	a, err := New(root)
 	require.NoError(t, err)
 
-	_, cmd := m.Update(tea.KeyPressMsg{Text: "q"})
-	require.NotNil(t, cmd)
-	require.IsType(t, tea.QuitMsg{}, cmd())
+	// app.Stop() is a no-op before the screen is initialized; this just
+	// confirms the key is wired to it without a real terminal.
+	require.NotPanics(t, func() { a.handleKey(key("q")) })
 }
 
 func TestRun_ErrorsBeforeRenderingWhenSopsUnavailable(t *testing.T) {

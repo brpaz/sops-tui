@@ -1,99 +1,138 @@
 package tui
 
 import (
+	"errors"
 	"fmt"
+	"os/exec"
 	"strings"
-
-	tea "charm.land/bubbletea/v2"
 
 	"github.com/brpaz/sops-tui/internal/secrets"
 )
 
-const (
-	statusEncrypted = "Encrypted"
-	statusPlaintext = "Plaintext"
-)
+// sopsExitFileUnchanged is the exit code sops itself uses for "the file
+// has not been modified, exiting.": the user opened the editor and saved
+// without changing anything. It's not a failure, so startEdit treats it
+// like a clean exit rather than surfacing an error pane.
+const sopsExitFileUnchanged = 200
 
-// encryptSelected encrypts the selected plaintext row via .sops.yaml
-// creation rules. On success the list is refreshed in place; on failure
-// (e.g. no matching creation rule) an error pane names the file and shows
-// sops's own reported reason. A no-op on anything but a plaintext row.
-func (m *Model) encryptSelected() {
-	if m.selectedStatus() != statusPlaintext {
+func isSopsFileUnchanged(err error) bool {
+	var exitErr *exec.ExitError
+	return errors.As(err, &exitErr) && exitErr.ExitCode() == sopsExitFileUnchanged
+}
+
+// startEncrypt raises a confirmation for encrypting the selected plaintext
+// row via .sops.yaml creation rules. A no-op on anything but a plaintext
+// row; nothing touches disk until the confirmation is accepted.
+func (a *App) startEncrypt() {
+	if a.selectedStatus() != secrets.StatusPlaintext {
+		return
+	}
+	if path := a.selectedPath(); path != "" {
+		a.confirm = &confirmPane{kind: "encrypt", path: path}
+	}
+}
+
+// startDecrypt raises a confirmation for decrypting the selected encrypted
+// row in place. A no-op on anything but an encrypted row; nothing touches
+// disk until the confirmation is accepted.
+func (a *App) startDecrypt() {
+	if a.selectedStatus() != secrets.StatusEncrypted {
+		return
+	}
+	if path := a.selectedPath(); path != "" {
+		a.confirm = &confirmPane{kind: "decrypt", path: path}
+	}
+}
+
+// confirmText renders c's full-screen confirmation prompt, worded for its
+// specific action so encrypt and decrypt read as distinct screens rather
+// than a generic yes/no dialog.
+func confirmText(c *confirmPane) string {
+	switch c.kind {
+	case "encrypt":
+		return fmt.Sprintf(
+			"Encrypt %s?\nThis writes ciphertext to disk using .sops.yaml creation rules.\n\n[y] yes   [n/esc] cancel",
+			c.path,
+		)
+	default:
+		return fmt.Sprintf(
+			"Decrypt %s in place?\nThis writes plaintext to disk.\n\n[y] yes   [n/esc] cancel",
+			c.path,
+		)
+	}
+}
+
+// confirmYes performs the pending encrypt/decrypt action and refreshes the
+// list. It clears the pending confirmation either way. On failure an error
+// pane names the file and shows the underlying reason, e.g. sops finding
+// no matching creation rule.
+func (a *App) confirmYes() {
+	if a.confirm == nil {
+		return
+	}
+	kind, path := a.confirm.kind, a.confirm.path
+	a.confirm = nil
+
+	var err error
+	switch kind {
+	case "encrypt":
+		err = secrets.Encrypt(a.fullPath(path))
+	case "decrypt":
+		err = secrets.Decrypt(a.fullPath(path))
+	}
+	if err != nil {
+		a.pane = errorPane(path, err)
 		return
 	}
 
-	path := m.selectedPath()
-	if path == "" {
-		return
-	}
-
-	if err := secrets.Encrypt(m.fullPath(path)); err != nil {
-		m.pane = errorPane(path, err)
-		return
-	}
-
-	if err := m.refresh(); err != nil {
-		m.err = err
+	if err := a.refresh(); err != nil {
+		a.fatalErr = err
 	}
 }
 
 // executeCommand runs a ":" command by name against the currently
 // selected row: view, encrypt, decrypt, edit, or refresh. An unrecognized
 // command name shows an error pane naming it.
-func (m *Model) executeCommand(name string) (Model, tea.Cmd) {
-	switch strings.TrimSpace(strings.ToLower(name)) {
+func (a *App) executeCommand(name string) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "view":
-		if path := m.selectedPath(); path != "" {
-			m.pane = m.viewPane(path)
+		if path := a.selectedPath(); path != "" {
+			a.pane = a.viewPane(path)
 		}
 	case "encrypt":
-		m.encryptSelected()
+		a.startEncrypt()
 	case "decrypt":
-		if m.selectedStatus() == statusEncrypted {
-			m.confirmDecrypt = m.selectedPath()
-		}
+		a.startDecrypt()
 	case "edit":
-		return m.startEdit()
+		a.startEdit()
 	case "refresh":
-		if err := m.refresh(); err != nil {
-			m.err = err
+		if err := a.refresh(); err != nil {
+			a.fatalErr = err
 		}
 	default:
-		m.pane = &pane{path: ":" + name, content: fmt.Sprintf("Error: unknown command %q", name)}
+		a.pane = &pane{path: ":" + name, content: fmt.Sprintf("Error: unknown command %q", name)}
 	}
-	return *m, nil
 }
 
 // startEdit suspends the TUI and runs `sops <file>` in the foreground on
-// the selected row, resuming when the subprocess exits. A no-op if no row
+// the selected row, refreshing the list once it exits. A no-op if no row
 // is selected.
-func (m Model) startEdit() (Model, tea.Cmd) {
-	path := m.selectedPath()
+func (a *App) startEdit() {
+	path := a.selectedPath()
 	if path == "" {
-		return m, nil
-	}
-
-	m.editingPath = path
-	cmd := secrets.EditCommand(m.fullPath(path))
-
-	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return editDoneMsg{err: err}
-	})
-}
-
-// confirmDecryptYes decrypts the file pending confirmation in place and
-// refreshes the list. It clears the pending confirmation either way.
-func (m *Model) confirmDecryptYes() {
-	path := m.confirmDecrypt
-	m.confirmDecrypt = ""
-
-	if err := secrets.Decrypt(m.fullPath(path)); err != nil {
-		m.pane = errorPane(path, err)
 		return
 	}
 
-	if err := m.refresh(); err != nil {
-		m.err = err
+	var editErr error
+	a.suspend(func() {
+		editErr = a.edit(a.fullPath(path))
+	})
+
+	if err := a.refresh(); err != nil {
+		a.fatalErr = err
+		return
+	}
+	if editErr != nil && !isSopsFileUnchanged(editErr) {
+		a.pane = errorPane(path, fmt.Errorf("edit did not complete: %w", editErr))
 	}
 }

@@ -9,9 +9,10 @@ const helpOverlay = `sops-tui keybindings
 
   v / enter      view decrypted content (read-only)
   E              edit (suspends to sops <file>)
-  e              encrypt selected plaintext file
+  e              encrypt selected plaintext file (asks to confirm)
   d              decrypt selected file in place (asks to confirm)
   r              refresh (re-scan)
+  tab            cycle view: encrypted / plaintext / all
 
   /              filter by path
   :              command mode (view/encrypt/decrypt/edit/refresh)
