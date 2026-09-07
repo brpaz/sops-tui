@@ -1,5 +1,7 @@
 # sops-tui
 
+![sops-tui demo](assets/demo.gif)
+
 Working with [SOPS](https://github.com/getsops/sops) day to day usually means a lot of
 `sops -d file.yaml | less`, `sops -e -i file.yaml`, and squinting at a directory listing trying to
 remember which files are actually encrypted. There's no single place to see the state of your

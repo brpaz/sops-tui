@@ -7,6 +7,8 @@
 
 > A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files
 
+![sops-tui demo](assets/demo.gif)
+
 ## ✨ Features
 
 - Flat, k9s-style table of every `.yaml`/`.yml`/`.json` file under a directory, with vim-style navigation
