@@ -1,9 +1,9 @@
 # sops-tui
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/brpaz/sops-tui?style=for-the-badge)
-![Go Report Card](https://goreportcard.com/badge/github.com/brpaz/sops-tui?style=for-the-badge)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/brpaz/sops-tui/ci.yml?branch=main&style=for-the-badge)](https://github.com/brpaz/sops-tui/actions)
 [![License](https://img.shields.io/github/license/brpaz/sops-tui?style=for-the-badge)](./LICENSE)
+![Vibe Coded](https://img.shields.io/badge/vibe-coded-8A2BE2?style=for-the-badge)
 
 > A k9s-style terminal UI for browsing, encrypting, and decrypting SOPS-protected secret files
 
@@ -69,15 +69,6 @@ sops-tui [path]
 | `?` | Help |
 | `q` / `Ctrl+C` | Quit |
 
-## 🧱 Tech Stack
-
-- [Go](https://go.dev/) with [urfave/cli](https://github.com/urfave/cli) for the CLI entrypoint
-- [rivo/tview](https://github.com/rivo/tview) (backed by [gdamore/tcell](https://github.com/gdamore/tcell)) for the terminal UI
-- [sops](https://github.com/getsops/sops) itself, shelled out to for every encrypt/decrypt/view/edit — this project never reimplements sops's own logic
-- [Zensical](https://zensical.org/) for the [documentation site](https://brpaz.github.io/sops-tui/), deployed to GitHub Pages
-- [draftsman](https://github.com/brpaz/draftsman) for changelog generation from Conventional Commits
-- [Renovate](https://docs.renovatebot.com/) for dependency updates
-- [devenv](https://devenv.sh/)/Nix for the reproducible dev shell, [GoReleaser](https://goreleaser.com/) for release builds, Docker and GitHub Actions for CI/CD
 
 ## 🤝 Contributing
 
@@ -97,11 +88,19 @@ If you find this project helpful and would like to support its development, ther
 
 ## 🤖 AI Usage
 
-This project was built in close collaboration with [Claude Code](https://claude.com/claude-code):
-feature implementation, UI iteration, CI/tooling fixes, and documentation were all done through an
-AI pair-programming workflow, directed and reviewed by the maintainer at each step. Every change
-was validated against the test suite, linters, and CI before being merged — the same bar as any
-other contribution to this repo.
+This project was entirely vibe coded with [Claude Code](https://claude.com/claude-code) Sonnet 5 with an high level manual review and some final adjustments. 
+
+This project was developed to solve a personal need quickly. I will use this tool regularly and will mantain it the best I can for my own use, but I don´t have the bandwidth to provide support for it. Use it at your own risk. Pull Requests are welcome.
+
+## 🧱 Tech Stack
+
+- [Go](https://go.dev/) with [urfave/cli](https://github.com/urfave/cli) for the CLI entrypoint
+- [rivo/tview](https://github.com/rivo/tview) (backed by [gdamore/tcell](https://github.com/gdamore/tcell)) for the terminal UI
+- [sops](https://github.com/getsops/sops) itself, shelled out to for every encrypt/decrypt/view/edit — this project never reimplements sops's own logic
+- [Zensical](https://zensical.org/) for the [documentation site](https://brpaz.github.io/sops-tui/), deployed to GitHub Pages
+- [draftsman](https://github.com/brpaz/draftsman) for changelog generation from Conventional Commits
+- [Renovate](https://docs.renovatebot.com/) for dependency updates
+- [devenv](https://devenv.sh/)/Nix for the reproducible dev shell, [GoReleaser](https://goreleaser.com/) for release builds, Docker and GitHub Actions for CI/CD
 
 ## ❤️ Acknowledgements
 
