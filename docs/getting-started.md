@@ -9,9 +9,30 @@
 
 ## Install
 
+Quick install (Linux/macOS):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brpaz/sops-tui/main/install.sh | sh
+```
+
+Downloads the latest release for your OS/arch, verifies its checksum, and installs it to
+`/usr/local/bin` (or `~/.local/bin` if that's not writable). See
+[`install.sh`](https://github.com/brpaz/sops-tui/blob/main/install.sh) for the `VERSION` and
+`INSTALL_DIR` overrides.
+
+Or download a release manually from [GitHub Releases](https://github.com/brpaz/sops-tui/releases)
+— pick the archive for your OS/arch, extract it, and put `sops-tui` on your `PATH`.
+
+Or via `go install`:
+
 ```bash
 go install github.com/brpaz/sops-tui/cmd/sops-tui@latest
 ```
+
+If you use [devenv](https://devenv.sh/), run this **outside** the devenv shell, or override
+`GOBIN` (e.g. `GOBIN=$HOME/go/bin go install ...`) — devenv points `GOPATH` at its own
+project-local directory, so a plain `go install` from inside the shell won't land on your normal
+`PATH`.
 
 Or build from source:
 

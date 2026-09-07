@@ -28,12 +28,30 @@
 
 ### Installation
 
+Quick install (Linux/macOS):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/brpaz/sops-tui/main/install.sh | sh
+```
+
+Downloads the latest release for your OS/arch, verifies its checksum, and installs it to
+`/usr/local/bin` (or `~/.local/bin` if that's not writable). See `install.sh` for the `VERSION`
+and `INSTALL_DIR` overrides.
+
+Or download a release manually from the [GitHub Releases](https://github.com/brpaz/sops-tui/releases)
+page — pick the archive for your OS/arch, extract it, and put `sops-tui` on your `PATH`.
+
+Or via `go install`:
+
 ```bash
 go install github.com/brpaz/sops-tui/cmd/sops-tui@latest
 ```
 
-Or grab a prebuilt binary from the [GitHub Releases](https://github.com/brpaz/sops-tui/releases)
-page — download the archive for your OS/arch, extract it, and put `sops-tui` on your `PATH`.
+> [!NOTE]
+> If you use [devenv](https://devenv.sh/), run this **outside** the devenv shell, or override
+> `GOBIN` (e.g. `GOBIN=$HOME/go/bin go install ...`) — devenv points `GOPATH` at its own
+> project-local directory, so a plain `go install` from inside the shell won't land on your normal
+> `PATH`.
 
 Or build from source:
 
@@ -103,8 +121,6 @@ This project was developed to solve a personal need quickly. I will use this too
 - [draftsman](https://github.com/brpaz/draftsman) for changelog generation from Conventional Commits
 - [Renovate](https://docs.renovatebot.com/) for dependency updates
 - [devenv](https://devenv.sh/)/Nix for the reproducible dev shell, [GoReleaser](https://goreleaser.com/) for release builds, Docker and GitHub Actions for CI/CD
-
-## ❤️ Acknowledgements
 
 ## 📃 License
 
